@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String  @id @default(uuid())
+  telegramId String  @unique @map("telegram_id")
+  username   String?
+  firstName  String? @map("first_name")
+  lastName   String? @map("last_name")
+
+  isAdmin    Boolean @default(false) @map("is_admin")
+
+  avatars Participant[]
+
+  createdAt DateTime @default(now())  @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user")
+}
+
+model Participant {
+  id   String          @id @default(uuid())
+
+  username String @default("anonymous")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  roomId String @map("room_id")
+  room   Room   @relation(fields: [roomId], references: [id])
+
+  isActive Boolean @default(true) @map("is_active")
+  connectedAt DateTime @default(now()) @map("connected_at")
+  exitedAt DateTime? @map("exited_at")
+
+  createdAt DateTime @default(now())  @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("participant")
+}
+
+model Room {
+  id   String          @id @default(uuid())
+  title String
+  code String @unique
+
+  isActive Boolean @default(true) @map("is_active")
+  blockedAt DateTime?   @map("blocked_at")
+
+  participants Participant[]
+
+  createdAt DateTime @default(now())  @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("room")
+}
