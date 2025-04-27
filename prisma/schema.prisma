@@ -8,8 +8,7 @@ datasource db {
 }
 
 model User {
-  id         String  @id @default(uuid())
-  telegramId String  @unique @map("telegram_id")
+  id         String  @id
   username   String?
   firstName  String? @map("first_name")
   lastName   String? @map("last_name")
@@ -25,8 +24,6 @@ model User {
 }
 
 model Participant {
-  id   String          @id @default(uuid())
-
   username String @default("anonymous")
 
   userId String @map("user_id")
@@ -42,12 +39,15 @@ model Participant {
   createdAt DateTime @default(now())  @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@id([roomId, userId])
+
   @@map("participant")
 }
 
 model Room {
   id   String          @id @default(uuid())
   title String
+  description String?
   code String @unique
 
   isActive Boolean @default(true) @map("is_active")

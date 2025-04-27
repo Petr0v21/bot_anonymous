@@ -15,8 +15,8 @@ export class RedisService {
     return this.redis;
   }
 
-  serializeUser(user: any): string {
-    return JSON.stringify(user);
+  serialize(obj: any): string {
+    return JSON.stringify(obj);
   }
 
   convertObjectWithDate<T>(args: T): T {
@@ -34,7 +34,7 @@ export class RedisService {
     return args;
   }
 
-  deserializeUser<T>(data: string | null): T | null {
+  deserialize<T>(data: string | null): T | null {
     if (!data) {
       return null;
     }

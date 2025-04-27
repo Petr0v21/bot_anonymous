@@ -6,6 +6,10 @@ import { PrismaService } from 'prisma/prisma.service';
 export class UserService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  async findUnique(args: Prisma.UserFindUniqueArgs) {
+    return this.prismaService.user.findUnique(args);
+  }
+
   async upsert(args: Prisma.UserUpsertArgs) {
     return this.prismaService.user.upsert(args);
   }
