@@ -53,7 +53,7 @@ export class AppModule {
   constructor(private readonly telegramService: TelegramService) {
     this.telegramService.init({
       url: process.env.PUBLIC_URL + '/telegram-bot/webhook',
-      byWebhook: process.env.BOT_ON_WEBHOOK === 'false',
+      byWebhook: process.env.BOT_ON_WEBHOOK === 'true',
     });
   }
 }
