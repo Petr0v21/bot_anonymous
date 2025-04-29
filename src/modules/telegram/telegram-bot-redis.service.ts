@@ -60,6 +60,29 @@ export class TelegramBotRedisService {
     await client.del(`${this.participantPrefix}:${roomId}-${userId}`);
   }
 
+  async getParticipant(roomId: string, userId: string | number) {
+    const client = this.redisService.getClient();
+    const particapantString = await client.get(
+      `${this.participantPrefix}:${roomId}-${userId}`,
+    );
+
+    if (!particapantString) {
+      return null;
+    }
+
+    return this.redisService.deserialize<Participant>(particapantString);
+  }
+
+  async getActiveUserIdsInRoom(roomId: string) {
+    const client = this.redisService.getClient();
+
+    const userIds = await client.smembers(
+      `${this.roomActiveUsersPrefix}${roomId}`,
+    );
+
+    return userIds;
+  }
+
   async getActiveUsersInRoom(roomId: string) {
     const client = this.redisService.getClient();
 

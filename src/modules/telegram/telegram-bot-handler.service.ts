@@ -118,9 +118,19 @@ export class TelegramBotHandlerService {
     if (!roomId || roomId === 'undefined') {
       throw new Error('RoomId doesn`t provided!');
     }
-    const users = await this.botRedisService.getActiveUsersInRoom(roomId);
 
-    users.forEach(({ userId, username }) => {
+    const particapant = await this.botRedisService.getParticipant(
+      roomId,
+      args.userId,
+    );
+
+    if (!particapant) {
+      throw new Error('Empty participant at redis');
+    }
+
+    const users = await this.botRedisService.getActiveUserIdsInRoom(roomId);
+
+    users.forEach((userId) => {
       if (userId === args.userId.toString()) {
         return;
       }
@@ -128,7 +138,7 @@ export class TelegramBotHandlerService {
         payload: {
           botToken: this.configService.get('BOT_TOKEN'),
           chatId: userId,
-          text: `🥷🏿 ${username}\n${args.text}`,
+          text: `🥷🏿 ${particapant.username}\n${args.text}`,
         },
         messageId: `${args.userId}-fanout-${userId}`,
       });
