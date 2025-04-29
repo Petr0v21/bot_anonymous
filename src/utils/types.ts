@@ -2,10 +2,12 @@ import { Room } from '@prisma/client';
 import { Context } from 'grammy';
 
 export enum ContentTypeE {
+  TEXT = 'TEXT',
   PHOTO = 'PHOTO',
   VIDEO = 'VIDEO',
   AUDIO = 'AUDIO',
   FILE = 'FILE',
+  ANIMATION = 'ANIMATION',
 }
 
 export enum TypeTelegramMessageE {
@@ -17,7 +19,7 @@ export enum TypeTelegramMessageE {
 export type TgServiceMessageT = {
   botToken: string;
   chatId: string;
-  text: string;
+  text?: string;
   fileUrl?: string;
   fileId?: string;
   replyMarkup?: any;
@@ -58,13 +60,16 @@ export type UserDataStatusT = {
   roomId?: string;
 };
 
+export type MessagePayload = Omit<
+  TgServiceMessageT,
+  'botToken' | 'chatId' | 'type'
+>;
+
 export type BotHandlerArgsT = {
   userId: number;
   status: UserDataStatusT;
-  text: string;
-  sendMessage: (
-    payload: Omit<TgServiceMessageT, 'botToken' | 'chatId'>,
-  ) => void;
+  payload: MessagePayload;
+  sendMessage: (payload: MessagePayload) => void;
 };
 
 export type PartlyRoom = Pick<Partial<Room>, 'code' | 'title' | 'description'>;

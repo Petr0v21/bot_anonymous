@@ -364,7 +364,7 @@ export class TelegramService {
     );
 
     bot.on(
-      'msg:text',
+      'msg',
       async (ctx) =>
         await this.wrapper({
           ctx,
@@ -374,10 +374,15 @@ export class TelegramService {
               userId,
             );
 
+            const payload = this.handlerService.buildMessagePayloadFromCtx(ctx);
+
             await this.handlerService.handle({
               userId,
               status: currentStatus,
-              text: ctx.message.text.trim(),
+              payload: {
+                ...payload,
+                text: payload.text?.trim(),
+              },
               sendMessage: (
                 payload: Omit<TgServiceMessageT, 'botToken' | 'chatId'>,
               ) =>

@@ -1,11 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { BotHandlerArgsT, BotUserStatusE, PartlyRoom } from 'src/utils/types';
+import {
+  BotHandlerArgsT,
+  BotUserStatusE,
+  ContentTypeE,
+  MessagePayload,
+  PartlyRoom,
+  TypeTelegramMessageE,
+} from 'src/utils/types';
 import { RoomService } from '../room/room.service';
 import { ParticipantService } from '../room/participant.service';
 import { TelegramBotRedisService } from './telegram-bot-redis.service';
 import { RabbitMQService } from '../rabbitmq/rabbitmq.service';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../user/user.service';
+import { Context } from 'grammy';
 
 @Injectable()
 export class TelegramBotHandlerService {
@@ -41,11 +49,68 @@ export class TelegramBotHandlerService {
     }
   }
 
+  buildMessagePayloadFromCtx({ message }: Context): MessagePayload {
+    const { text, caption } = message;
+
+    if (message.photo) {
+      const largestPhoto = message.photo.at(-1); // Берем самое большое фото
+      return {
+        text: caption,
+        fileId: largestPhoto.file_id,
+        contentType: ContentTypeE.PHOTO,
+      };
+    }
+
+    if (message.video_note) {
+      return {
+        fileId: message.video_note.file_id,
+        contentType: ContentTypeE.VIDEO,
+      };
+    }
+
+    if (message.video) {
+      return {
+        text: caption,
+        fileId: message.video.file_id,
+        contentType: ContentTypeE.VIDEO,
+      };
+    }
+
+    if (message.animation) {
+      return {
+        text: caption,
+        fileId: message.animation.file_id,
+        contentType: ContentTypeE.ANIMATION,
+      };
+    }
+
+    if (message.voice) {
+      return {
+        text: caption,
+        fileId: message.voice.file_id,
+        contentType: ContentTypeE.AUDIO,
+      };
+    }
+
+    if (message.document) {
+      return {
+        text: caption,
+        fileId: message.document.file_id,
+        contentType: ContentTypeE.FILE,
+      };
+    }
+
+    return {
+      contentType: ContentTypeE.TEXT,
+      text,
+    };
+  }
+
   private async handleFree(): Promise<void> {}
 
   private async handleInputCode({
     userId,
-    text,
+    payload: { text },
     sendMessage,
   }: BotHandlerArgsT): Promise<void> {
     const particapant = await this.roomService.addParticipant(
@@ -93,11 +158,11 @@ export class TelegramBotHandlerService {
         roomId,
         userId: args.userId.toString(),
         isActive: true,
-        username: args.text,
+        username: args.payload.text,
       },
       update: {
         isActive: true,
-        username: args.text,
+        username: args.payload.text,
       },
     });
 
@@ -109,7 +174,7 @@ export class TelegramBotHandlerService {
     await this.botRedisService.addUserToRoom(args.userId, roomId, participant);
 
     args.sendMessage({
-      text: `Welcome ${args.text} to ${room.title}\nDescription: ${room.description}`,
+      text: `Welcome ${args.payload.text} to ${room.title}\nDescription: ${room.description}`,
     });
   }
 
@@ -134,11 +199,14 @@ export class TelegramBotHandlerService {
       if (userId === args.userId.toString()) {
         return;
       }
+
       this.rabbitMQService.tgServiceEmit({
         payload: {
           botToken: this.configService.get('BOT_TOKEN'),
           chatId: userId,
-          text: `🥷🏿 ${particapant.username}\n${args.text}`,
+          ...args.payload,
+          text: `🥷🏿 ${particapant.username}\n${args.payload.text ?? ''}`,
+          type: TypeTelegramMessageE.SINGLE_CHAT,
         },
         messageId: `${args.userId}-fanout-${userId}`,
       });
@@ -148,7 +216,7 @@ export class TelegramBotHandlerService {
   private async handleInputNewAdmin(args: BotHandlerArgsT): Promise<void> {
     const user = await this.userService.findUnique({
       where: {
-        id: args.text,
+        id: args.payload.text,
       },
     });
 
@@ -186,7 +254,7 @@ export class TelegramBotHandlerService {
   private async handleInputNewRoom({
     status,
     userId,
-    text,
+    payload: { text },
     sendMessage,
   }: BotHandlerArgsT): Promise<void> {
     const { roomId } = status;
@@ -264,13 +332,13 @@ export class TelegramBotHandlerService {
   private async handleDisactivateRoom(args: BotHandlerArgsT): Promise<void> {
     const room = await this.roomService.findUnique({
       where: {
-        id: args.text,
+        id: args.payload.text,
       },
     });
 
     if (!room) {
       return args.sendMessage({
-        text: `Room with code ${args.text} doesn't exist`,
+        text: `Room with code ${args.payload.text} doesn't exist`,
       });
     }
 
