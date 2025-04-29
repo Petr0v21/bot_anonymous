@@ -360,8 +360,9 @@ export class TelegramService {
                 type: TypeTelegramMessageE.SINGLE_CHAT,
                 contentType: ContentTypeE.TEXT,
                 text: `${
-                  rooms.length &&
-                  'To switch room click on buuton with room title)\n'
+                  rooms.length
+                    ? 'To switch room click on buuton with room title)\n'
+                    : ''
                 }Your latest rooms: ${!rooms.length ? 'NULL' : '⬇️'}`,
                 replyMarkup: {
                   inline_keyboard: rooms.map((room) => [
