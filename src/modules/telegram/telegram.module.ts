@@ -21,7 +21,7 @@ import { TelegramBotHandlerService } from './telegram-bot-handler.service';
 export class TelegramModule {
   static forRoot(token: string): DynamicModule {
     if (!token) {
-      console.error('Bot Token EMPTY!');
+      console.error('❌[TelegramModule] Bot Token URL Emty!');
       process.exit(1);
     }
     return {

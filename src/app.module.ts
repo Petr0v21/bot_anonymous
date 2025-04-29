@@ -51,8 +51,9 @@ import { BullModule } from '@nestjs/bull';
 })
 export class AppModule {
   constructor(private readonly telegramService: TelegramService) {
-    this.telegramService.initWebhook(
-      process.env.PUBLIC_URL + '/telegram-bot/webhook',
-    );
+    this.telegramService.init({
+      url: process.env.PUBLIC_URL + '/telegram-bot/webhook',
+      isPolling: process.env.BOT_ON_POLLING === 'true',
+    });
   }
 }
