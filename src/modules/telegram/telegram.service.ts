@@ -500,17 +500,17 @@ export class TelegramService {
     });
   }
 
-  init(args: { url?: string; isPolling?: boolean }): void {
+  init(args: { url?: string; byWebhook?: boolean }): void {
     try {
-      if (args.isPolling) {
-        this.bot.start();
-      } else {
+      if (args.byWebhook) {
         if (!args.url) {
           this.logger.error('❌[Init Bot] Webhook URL Emty!');
           process.exit(1);
         }
         this.bot.api.setWebhook(`${args.url}`);
         this.bot.init();
+      } else {
+        this.bot.start();
       }
       this.logger.log('✅[Init Bot] Bot inited!!!');
     } catch (err) {
