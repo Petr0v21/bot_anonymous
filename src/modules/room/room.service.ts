@@ -26,6 +26,21 @@ export class RoomService {
     return this.prismaService.room.update(args);
   }
 
+  async getUserRooms(userId: string, skip?: number, take?: number) {
+    return this.prismaService.room.findMany({
+      where: {
+        isActive: true,
+        participants: {
+          every: {
+            userId,
+          },
+        },
+      },
+      skip: skip ?? 0,
+      take: take ?? 10,
+    });
+  }
+
   async addParticipant(
     code: string,
     userId: string,

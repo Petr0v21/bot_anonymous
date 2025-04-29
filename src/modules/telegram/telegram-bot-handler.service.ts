@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   BotHandlerArgsT,
   BotUserStatusE,
@@ -6,6 +6,7 @@ import {
   MessagePayload,
   PartlyRoom,
   TypeTelegramMessageE,
+  UserDataStatusT,
 } from 'src/utils/types';
 import { RoomService } from '../room/room.service';
 import { ParticipantService } from '../room/participant.service';
@@ -17,6 +18,8 @@ import { Context } from 'grammy';
 
 @Injectable()
 export class TelegramBotHandlerService {
+  private logger: Logger = new Logger(TelegramBotHandlerService.name);
+
   constructor(
     private readonly roomService: RoomService,
     private readonly userService: UserService,
@@ -104,6 +107,63 @@ export class TelegramBotHandlerService {
       contentType: ContentTypeE.TEXT,
       text,
     };
+  }
+
+  async switchRoom(
+    userId: number,
+    status: UserDataStatusT,
+    code: string,
+    sendMessage: (payload: MessagePayload) => void,
+  ) {
+    try {
+      if (status.status === BotUserStatusE.PARTICIPANT && status.roomId) {
+        const room = await this.roomService.findUnique({
+          where: {
+            code,
+          },
+        });
+        if (room) {
+          return sendMessage({ text: 'It`s your current room!' });
+        }
+        await this.exitFromRoom(userId, status.roomId);
+      }
+
+      await this.handleInputCode({
+        userId,
+        status,
+        payload: { text: code },
+        sendMessage,
+      });
+    } catch (err) {
+      this.logger.error(`❌ [SwitchRoom] Error:`, err);
+      sendMessage({
+        text: 'Oooppps! Something went wrong(((',
+      });
+    }
+  }
+
+  async exitFromRoom(userId: string | number, roomId: string) {
+    await this.participantService.upsert({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId: userId.toString(),
+        },
+      },
+      create: {
+        roomId,
+        userId: userId.toString(),
+        isActive: false,
+        exitedAt: new Date(),
+      },
+      update: {
+        isActive: false,
+        exitedAt: new Date(),
+      },
+    });
+
+    await this.botRedisService.upsertUserStatus(userId, BotUserStatusE.FREE);
+    await this.botRedisService.removeUserFromRoom(userId, roomId);
   }
 
   private async handleFree(): Promise<void> {}
