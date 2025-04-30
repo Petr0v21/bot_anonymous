@@ -55,7 +55,8 @@ export class TelegramService {
 
     try {
       if (middlewares) {
-        await middlewares({ ctx, chatId, userId });
+        const status = await middlewares({ ctx, chatId, userId });
+        if (!status) return;
       }
 
       return await handler({ ctx, chatId, userId });
@@ -83,7 +84,7 @@ export class TelegramService {
     });
 
     if (!user) {
-      return this.rabbitMQService.tgServiceEmit({
+      this.rabbitMQService.tgServiceEmit({
         payload: {
           botToken: this.bot_token,
           chatId: chatId.toString(),
@@ -93,6 +94,7 @@ export class TelegramService {
         },
         messageId: `${chatId}-${ctx.message.message_id}`,
       });
+      throw new Error('Forbidden access for ' + chatId);
     }
   }
 
@@ -208,7 +210,15 @@ export class TelegramService {
               BotUserStatusE.INPUT_NEW_ADMIN,
             );
           },
-          middlewares: async (args) => this.authAdminWrapper(args),
+          middlewares: async (args) => {
+            try {
+              await this.authAdminWrapper(args);
+              return true;
+            } catch (err) {
+              this.logger.warn(`[CommandNewRoom-AuthAdminWrapper] Warn:`, err);
+              return false;
+            }
+          },
         }),
     );
 
@@ -241,7 +251,15 @@ export class TelegramService {
               'code',
             );
           },
-          middlewares: async (args) => this.authAdminWrapper(args),
+          middlewares: async (args) => {
+            try {
+              await this.authAdminWrapper(args);
+              return true;
+            } catch (err) {
+              this.logger.warn(`[CommandNewRoom-AuthAdminWrapper] Warn:`, err);
+              return false;
+            }
+          },
         }),
     );
 
@@ -273,7 +291,18 @@ export class TelegramService {
               BotUserStatusE.DISACTIVATE_ROOM,
             );
           },
-          middlewares: async (args) => this.authAdminWrapper(args),
+          middlewares: async (args) => {
+            try {
+              await this.authAdminWrapper(args);
+              return true;
+            } catch (err) {
+              this.logger.warn(
+                `[CommandDisactivateRoom-AuthAdminWrapper] Warn:`,
+                err,
+              );
+              return false;
+            }
+          },
         }),
     );
 

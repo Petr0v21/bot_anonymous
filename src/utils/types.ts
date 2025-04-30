@@ -41,7 +41,7 @@ export type BotDefaultHandlerArgsT = {
 export type BotHandlerWrapperT = {
   ctx: Context;
   handler: (args: BotDefaultHandlerArgsT) => Promise<any>;
-  middlewares?: (args: BotDefaultHandlerArgsT) => Promise<any>;
+  middlewares?: (args: BotDefaultHandlerArgsT) => Promise<boolean>;
   method?: string;
 };
 
