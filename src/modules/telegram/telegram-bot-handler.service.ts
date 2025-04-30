@@ -52,6 +52,36 @@ export class TelegramBotHandlerService {
     }
   }
 
+  getReplyText(text?: string) {
+    if (!text || !text.startsWith('👤')) {
+      return;
+    }
+
+    const usernameLastIndex = text.indexOf('\n');
+
+    const username = text.slice(
+      3,
+      usernameLastIndex === -1 ? text.length : usernameLastIndex,
+    );
+
+    if (!username) {
+      return;
+    }
+
+    const messageStartIndex = text.indexOf('📃');
+
+    let message: string | null = null;
+    if (messageStartIndex !== -1) {
+      const originalMessage = text.slice(messageStartIndex + 3);
+      message =
+        originalMessage.length > 36
+          ? originalMessage.slice(0, 24) + '...'
+          : originalMessage;
+    }
+
+    return `👤 <b>${username}</b>${message ? ': ' + message : ''}`;
+  }
+
   buildMessagePayloadFromCtx({ message }: Context): MessagePayload {
     const { text, caption } = message;
 
@@ -196,6 +226,13 @@ export class TelegramBotHandlerService {
   }
 
   private async handleInputUsername(args: BotHandlerArgsT): Promise<void> {
+    const text = args.payload.text;
+
+    if (!text || text.includes('\n') || text.length > 64) {
+      return args.sendMessage({
+        text: `Your username length must be less than 64 and in one row!\nTry again!`,
+      });
+    }
     const { roomId } = args.status;
     if (!roomId || roomId === 'undefined') {
       throw new Error('RoomId doesn`t provided!');
@@ -265,7 +302,9 @@ export class TelegramBotHandlerService {
           botToken: this.configService.get('BOT_TOKEN'),
           chatId: userId,
           ...args.payload,
-          text: `🥷🏿 ${particapant.username}\n${args.payload.text ?? ''}`,
+          text: `👤 <b>${particapant.username}</b>\n${
+            args.payload.replyText ? `↪️${args.payload.replyText}\n` : ''
+          }${args.payload.text ? `📃 ${args.payload.text}` : ''}`,
           type: TypeTelegramMessageE.SINGLE_CHAT,
         },
         messageId: `${args.userId}-fanout-${userId}`,

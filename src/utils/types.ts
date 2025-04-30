@@ -68,7 +68,7 @@ export type MessagePayload = Omit<
 export type BotHandlerArgsT = {
   userId: number;
   status: UserDataStatusT;
-  payload: MessagePayload;
+  payload: MessagePayload & { replyText?: string };
   sendMessage: (payload: MessagePayload) => void;
 };
 

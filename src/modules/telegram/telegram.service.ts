@@ -463,6 +463,13 @@ export class TelegramService {
               userId,
             );
 
+            const replyMessage = ctx.message.reply_to_message;
+            const replyText =
+              replyMessage && replyMessage.from.is_bot
+                ? this.handlerService.getReplyText(
+                    replyMessage.text ?? replyMessage.caption,
+                  )
+                : undefined;
             const payload = this.handlerService.buildMessagePayloadFromCtx(ctx);
 
             await this.handlerService.handle({
@@ -471,6 +478,7 @@ export class TelegramService {
               payload: {
                 ...payload,
                 text: payload.text?.trim(),
+                replyText,
               },
               sendMessage: (
                 payload: Omit<TgServiceMessageT, 'botToken' | 'chatId'>,
