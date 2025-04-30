@@ -31,7 +31,7 @@ export class RoomService {
       where: {
         isActive: true,
         participants: {
-          every: {
+          some: {
             userId,
           },
         },
