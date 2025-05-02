@@ -17,4 +17,16 @@ export class ParticipantService {
   async update(args: Prisma.ParticipantUpdateArgs) {
     return this.prismaService.participant.update(args);
   }
+
+  async removeParticipant(roomId: string, userId: string) {
+    return this.prismaService.participant.delete({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId,
+        },
+        isActive: false,
+      },
+    });
+  }
 }

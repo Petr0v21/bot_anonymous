@@ -38,6 +38,7 @@ export class TelegramBotHandlerService {
     [BotUserStatusE.INPUT_USERNAME]: (args) => this.handleInputUsername(args),
     [BotUserStatusE.PARTICIPANT]: (args) => this.handleParticipant(args),
     [BotUserStatusE.INPUT_NEW_ADMIN]: (args) => this.handleInputNewAdmin(args),
+    [BotUserStatusE.INPUT_DEL_ADMIN]: (args) => this.handleInputDelAdmin(args),
     [BotUserStatusE.INPUT_NEW_ROOM]: (args) => this.handleInputNewRoom(args),
     [BotUserStatusE.DISACTIVATE_ROOM]: (args) =>
       this.handleDisactivateRoom(args),
@@ -221,11 +222,23 @@ export class TelegramBotHandlerService {
     );
 
     sendMessage({
-      text: `Input username for room`,
+      text: `Input username for room ${
+        particapant.username ? `\nOr select your previous username` : ''
+      }`,
+      replyMarkup: {
+        inline_keyboard: [
+          [
+            {
+              text: particapant.username,
+              callback_data: `participant:${particapant.roomId}:${particapant.username}`,
+            },
+          ],
+        ],
+      },
     });
   }
 
-  private async handleInputUsername(args: BotHandlerArgsT): Promise<void> {
+  async handleInputUsername(args: BotHandlerArgsT): Promise<void> {
     const text = args.payload.text;
 
     if (!text || text.includes('\n') || text.length > 64) {
@@ -243,6 +256,20 @@ export class TelegramBotHandlerService {
         id: roomId,
       },
     });
+
+    const isExistUsername = await this.participantService.findUnique({
+      where: {
+        username: args.payload.text,
+        userId: { not: args.userId.toString() },
+        roomId: { not: roomId },
+      },
+    });
+
+    if (isExistUsername) {
+      return args.sendMessage({
+        text: `This username: ${args.payload.text} already exist! Try another name!`,
+      });
+    }
 
     const participant = await this.participantService.upsert({
       where: {
@@ -350,6 +377,44 @@ export class TelegramBotHandlerService {
     });
   }
 
+  private async handleInputDelAdmin(args: BotHandlerArgsT): Promise<void> {
+    const user = await this.userService.findUnique({
+      where: {
+        id: args.payload.text,
+      },
+    });
+
+    if (!user) {
+      return args.sendMessage({
+        text: 'This user doesn`t exist at this bot!',
+      });
+    }
+
+    if (!user.isAdmin) {
+      return args.sendMessage({
+        text: 'This user isn`t an admin!',
+      });
+    }
+
+    await this.userService.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        isAdmin: false,
+      },
+    });
+
+    await this.botRedisService.upsertUserStatus(
+      args.userId,
+      BotUserStatusE.FREE,
+    );
+
+    return args.sendMessage({
+      text: `Deleted admin ${user.username} with ID ${user.id}`,
+    });
+  }
+
   private async handleInputNewRoom({
     status,
     userId,
@@ -450,6 +515,8 @@ export class TelegramBotHandlerService {
         blockedAt: new Date(),
       },
     });
+
+    await this.botRedisService.delRoomUsers(room.id);
 
     await this.botRedisService.upsertUserStatus(
       args.userId,

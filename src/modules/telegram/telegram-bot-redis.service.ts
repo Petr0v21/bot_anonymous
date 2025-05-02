@@ -53,9 +53,26 @@ export class TelegramBotRedisService {
     );
   }
 
-  async removeUserFromRoom(userId: number | string, roomId: string) {
+  async delRoomUsers(roomId: string) {
     const client = this.redisService.getClient();
 
+    const userIds = await client.smembers(
+      `${this.roomActiveUsersPrefix}${roomId}`,
+    );
+
+    if (userIds.length > 0) {
+      for (let i = 0; i < userIds.length; i += 100) {
+        const keysToDelete = userIds
+          .slice(i, i + 100)
+          .map((userId) => `${this.participantPrefix}:${roomId}-${userId}`);
+        await client.del(...keysToDelete);
+      }
+    }
+    await client.del(`${this.roomActiveUsersPrefix}${roomId}`);
+  }
+
+  async removeUserFromRoom(userId: number | string, roomId: string) {
+    const client = this.redisService.getClient();
     await client.srem(`${this.roomActiveUsersPrefix}${roomId}`, userId);
     await client.del(`${this.participantPrefix}:${roomId}-${userId}`);
   }

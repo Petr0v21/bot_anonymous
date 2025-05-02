@@ -24,7 +24,7 @@ model User {
 }
 
 model Participant {
-  username String @default("anonymous")
+  username String? @unique
 
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id])

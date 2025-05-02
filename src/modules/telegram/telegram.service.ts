@@ -11,6 +11,7 @@ import {
   BotHandlerWrapperT,
   BotUserStatusE,
   ContentTypeE,
+  MessagePayload,
   TgServiceMessageT,
   TypeTelegramMessageE,
 } from 'src/utils/types';
@@ -189,11 +190,18 @@ export class TelegramService {
           ctx,
           method: 'CommandNewAdmin',
           handler: async ({ ctx, chatId, userId }) => {
-            const { status, roomId } = await this.botRedisService.getUserStatus(
-              userId,
-            );
-            if (status === BotUserStatusE.PARTICIPANT && roomId) {
-              await this.botRedisService.removeUserFromRoom(userId, roomId);
+            const { status } = await this.botRedisService.getUserStatus(userId);
+            if (status === BotUserStatusE.PARTICIPANT) {
+              return this.rabbitMQService.tgServiceEmit({
+                payload: {
+                  botToken: this.bot_token,
+                  chatId: chatId.toString(),
+                  type: TypeTelegramMessageE.SINGLE_CHAT,
+                  contentType: ContentTypeE.TEXT,
+                  text: 'Exit from room!',
+                },
+                messageId: `${chatId}-${ctx.message.message_id}`,
+              });
             }
             this.rabbitMQService.tgServiceEmit({
               payload: {
@@ -215,7 +223,113 @@ export class TelegramService {
               await this.authAdminWrapper(args);
               return true;
             } catch (err) {
-              this.logger.warn(`[CommandNewRoom-AuthAdminWrapper] Warn:`, err);
+              this.logger.warn(`[CommandNewAdmin-AuthAdminWrapper] Warn:`, err);
+              return false;
+            }
+          },
+        }),
+    );
+
+    bot.command(
+      'del_admin',
+      async (ctx) =>
+        await this.wrapper({
+          ctx,
+          method: 'CommandDeleteAdmin',
+          handler: async ({ ctx, chatId, userId }) => {
+            const { status, roomId } = await this.botRedisService.getUserStatus(
+              userId,
+            );
+            if (status === BotUserStatusE.PARTICIPANT) {
+              return this.rabbitMQService.tgServiceEmit({
+                payload: {
+                  botToken: this.bot_token,
+                  chatId: chatId.toString(),
+                  type: TypeTelegramMessageE.SINGLE_CHAT,
+                  contentType: ContentTypeE.TEXT,
+                  text: 'Exit from room!',
+                },
+                messageId: `${chatId}-${ctx.message.message_id}`,
+              });
+            }
+
+            this.rabbitMQService.tgServiceEmit({
+              payload: {
+                botToken: this.bot_token,
+                chatId: chatId.toString(),
+                type: TypeTelegramMessageE.SINGLE_CHAT,
+                contentType: ContentTypeE.TEXT,
+                text: 'Input telegram ID of admin',
+              },
+              messageId: `${chatId}-${ctx.message.message_id}`,
+            });
+            await this.botRedisService.upsertUserStatus(
+              userId,
+              BotUserStatusE.INPUT_DEL_ADMIN,
+            );
+          },
+          middlewares: async (args) => {
+            try {
+              await this.authAdminWrapper(args);
+              return true;
+            } catch (err) {
+              this.logger.warn(
+                `[CommandDeleteAdmin-AuthAdminWrapper] Warn:`,
+                err,
+              );
+              return false;
+            }
+          },
+        }),
+    );
+
+    bot.command(
+      'admins',
+      async (ctx) =>
+        await this.wrapper({
+          ctx,
+          method: 'CommandListAdmins',
+          handler: async ({ ctx, chatId }) => {
+            let page: string | number = ctx.message.text
+              .replace('/admins', '')
+              .trim();
+
+            if (!isNaN(Number(page))) {
+              page = Number(page);
+            }
+
+            const admins = await this.userService.find({
+              where: {
+                isAdmin: true,
+              },
+              skip: typeof page === 'number' && page > 1 ? (page - 1) * 10 : 0,
+              take: 10,
+            });
+
+            this.rabbitMQService.tgServiceEmit({
+              payload: {
+                botToken: this.bot_token,
+                chatId: chatId.toString(),
+                type: TypeTelegramMessageE.SINGLE_CHAT,
+                contentType: ContentTypeE.TEXT,
+                text:
+                  `Admins list (page: ${
+                    typeof page === 'number' && page > 1 ? page : 1
+                  }): ${!admins.length ? 'Empty' : ''}` +
+                  admins.map((admin) => `\n${admin.username} - ${admin.id}`),
+              },
+              messageId: `${chatId}-${ctx.message.message_id}`,
+            });
+          },
+          middlewares: async (args) => {
+            try {
+              await this.authAdminWrapper(args);
+              return true;
+            } catch (err) {
+              this.logger.warn(
+                `[CommandListAdmins-AuthAdminWrapper] Warn:`,
+                err,
+              );
               return false;
             }
           },
@@ -229,11 +343,18 @@ export class TelegramService {
           ctx,
           method: 'CommandNewRoom',
           handler: async ({ ctx, chatId, userId }) => {
-            const { status, roomId } = await this.botRedisService.getUserStatus(
-              userId,
-            );
-            if (status === BotUserStatusE.PARTICIPANT && roomId) {
-              await this.botRedisService.removeUserFromRoom(userId, roomId);
+            const { status } = await this.botRedisService.getUserStatus(userId);
+            if (status === BotUserStatusE.PARTICIPANT) {
+              return this.rabbitMQService.tgServiceEmit({
+                payload: {
+                  botToken: this.bot_token,
+                  chatId: chatId.toString(),
+                  type: TypeTelegramMessageE.SINGLE_CHAT,
+                  contentType: ContentTypeE.TEXT,
+                  text: 'Exit from room!',
+                },
+                messageId: `${chatId}-${ctx.message.message_id}`,
+              });
             }
             this.rabbitMQService.tgServiceEmit({
               payload: {
@@ -270,9 +391,21 @@ export class TelegramService {
           ctx,
           method: 'CommandDisactivateRoom',
           handler: async ({ ctx, chatId, userId }) => {
-            const { status, roomId } = await this.botRedisService.getUserStatus(
-              userId,
-            );
+            const { status } = await this.botRedisService.getUserStatus(userId);
+
+            if (status === BotUserStatusE.PARTICIPANT) {
+              return this.rabbitMQService.tgServiceEmit({
+                payload: {
+                  botToken: this.bot_token,
+                  chatId: chatId.toString(),
+                  type: TypeTelegramMessageE.SINGLE_CHAT,
+                  contentType: ContentTypeE.TEXT,
+                  text: 'Exit from room!',
+                },
+                messageId: `${chatId}-${ctx.message.message_id}`,
+              });
+            }
+
             this.rabbitMQService.tgServiceEmit({
               payload: {
                 botToken: this.bot_token,
@@ -283,9 +416,7 @@ export class TelegramService {
               },
               messageId: `${chatId}-${ctx.message.message_id}`,
             });
-            if (status === BotUserStatusE.PARTICIPANT && roomId) {
-              await this.botRedisService.removeUserFromRoom(userId, roomId);
-            }
+
             await this.botRedisService.upsertUserStatus(
               userId,
               BotUserStatusE.DISACTIVATE_ROOM,
@@ -409,6 +540,47 @@ export class TelegramService {
     );
 
     bot.command(
+      'del_room',
+      async (ctx) =>
+        await this.wrapper({
+          ctx,
+          method: 'CommandDeleteRoom',
+          handler: async ({ ctx, chatId, userId }) => {
+            const { status, roomId } = await this.botRedisService.getUserStatus(
+              userId,
+            );
+
+            let rooms = await this.roomService.getUserRooms(userId.toString());
+
+            if (status === BotUserStatusE.PARTICIPANT && roomId) {
+              rooms = rooms.filter((item) => item.id !== roomId);
+            }
+
+            return this.rabbitMQService.tgServiceEmit({
+              payload: {
+                botToken: this.bot_token,
+                chatId: chatId.toString(),
+                type: TypeTelegramMessageE.SINGLE_CHAT,
+                contentType: ContentTypeE.TEXT,
+                text: rooms.length
+                  ? 'Click on title room for delete from pool'
+                  : 'Your enable rooms pool empty!',
+                replyMarkup: {
+                  inline_keyboard: rooms.map((room) => [
+                    {
+                      text: room.title,
+                      callback_data: `delete_pool_room:${room.code}`,
+                    },
+                  ]),
+                },
+              },
+              messageId: `${chatId}-${ctx.message.message_id}`,
+            });
+          },
+        }),
+    );
+
+    bot.command(
       'exit',
       async (ctx) =>
         await this.wrapper({
@@ -463,14 +635,24 @@ export class TelegramService {
               userId,
             );
 
-            const replyMessage = ctx.message.reply_to_message;
-            const replyText =
-              replyMessage && replyMessage.from.is_bot
-                ? this.handlerService.getReplyText(
-                    replyMessage.text ?? replyMessage.caption,
-                  )
-                : undefined;
-            const payload = this.handlerService.buildMessagePayloadFromCtx(ctx);
+            let replyText = undefined;
+
+            if (currentStatus.status === BotUserStatusE.PARTICIPANT) {
+              const replyMessage = ctx.message.reply_to_message;
+              if (replyMessage && replyMessage.from.is_bot) {
+                replyText = this.handlerService.getReplyText(
+                  replyMessage.text ?? replyMessage.caption,
+                );
+              }
+            }
+
+            const payload: MessagePayload =
+              currentStatus.status === BotUserStatusE.PARTICIPANT
+                ? this.handlerService.buildMessagePayloadFromCtx(ctx)
+                : {
+                    contentType: ContentTypeE.TEXT,
+                    text: ctx.message.text ?? ctx.message.caption,
+                  };
 
             await this.handlerService.handle({
               userId,
@@ -499,40 +681,115 @@ export class TelegramService {
     );
 
     bot.on('callback_query:data', async (ctx) => {
-      if (ctx.callbackQuery.data.startsWith('room:')) {
-        const code = ctx.callbackQuery.data.replace('room:', '').trim();
-        if (!code) {
+      try {
+        const currentStatus = await this.botRedisService.getUserStatus(
+          ctx.from.id,
+        );
+        if (ctx.callbackQuery.data.startsWith('room:')) {
+          const code = ctx.callbackQuery.data.replace('room:', '').trim();
+          if (!code) {
+            throw new Error('Empty code!');
+          }
+          await this.handlerService.switchRoom(
+            ctx.from.id,
+            currentStatus,
+            code,
+            (payload) => {
+              this.rabbitMQService.tgServiceEmit({
+                payload: {
+                  botToken: this.bot_token,
+                  chatId: ctx.from.id.toString(),
+                  type: TypeTelegramMessageE.SINGLE_CHAT,
+                  contentType: ContentTypeE.TEXT,
+                  ...payload,
+                },
+                messageId: `${ctx.from.id}-${ctx.callbackQuery.id}`,
+              });
+            },
+          );
+        }
+        if (ctx.callbackQuery.data.startsWith('participant:')) {
+          const sepKey = ctx.callbackQuery.data.split(':');
+          if (sepKey.length !== 3) {
+            throw new Error('Empty code!');
+          }
+
+          await this.handlerService.handleInputUsername({
+            payload: {
+              text: sepKey[2],
+              contentType: ContentTypeE.TEXT,
+            },
+            status: currentStatus,
+            userId: ctx.from.id,
+            sendMessage: (
+              payload: Omit<TgServiceMessageT, 'botToken' | 'chatId'>,
+            ) =>
+              this.rabbitMQService.tgServiceEmit({
+                payload: {
+                  botToken: this.bot_token,
+                  chatId: ctx.from.id.toString(),
+                  type: TypeTelegramMessageE.SINGLE_CHAT,
+                  contentType: ContentTypeE.TEXT,
+                  ...payload,
+                },
+                messageId: `${ctx.from.id}-callback_data`,
+              }),
+          });
+        }
+        if (ctx.callbackQuery.data.startsWith('delete_pool_room:')) {
+          const code = ctx.callbackQuery.data
+            .replace('delete_pool_room:', '')
+            .trim();
+          if (!code) {
+            throw new Error('Empty code!');
+          }
+          const room = await this.roomService.findUnique({
+            where: {
+              code,
+              participants: {
+                some: {
+                  userId: ctx.from.id.toString(),
+                },
+              },
+            },
+          });
+          if (!room) {
+            throw new Error('Your pool already haven`t this room!');
+          }
+          if (currentStatus.roomId && room.id === currentStatus.roomId) {
+            throw new Error('You can`t delete this room once you`re in it');
+          }
+          const result = await this.participantService.removeParticipant(
+            room.id,
+            ctx.from.id.toString(),
+          );
+          if (!result) {
+            throw new Error();
+          }
           this.rabbitMQService.tgServiceEmit({
             payload: {
               botToken: this.bot_token,
               chatId: ctx.from.id.toString(),
               type: TypeTelegramMessageE.SINGLE_CHAT,
               contentType: ContentTypeE.TEXT,
-              text: 'Invalid callback_query data',
+              text: `Your successfuly remove room (${room.title}) from your pool!`,
             },
             messageId: `${ctx.from.id}-${ctx.callbackQuery.id}`,
           });
         }
-        const currentStatus = await this.botRedisService.getUserStatus(
-          ctx.from.id,
-        );
-        await this.handlerService.switchRoom(
-          ctx.from.id,
-          currentStatus,
-          code,
-          (payload) => {
-            this.rabbitMQService.tgServiceEmit({
-              payload: {
-                botToken: this.bot_token,
-                chatId: ctx.from.id.toString(),
-                type: TypeTelegramMessageE.SINGLE_CHAT,
-                contentType: ContentTypeE.TEXT,
-                ...payload,
-              },
-              messageId: `${ctx.from.id}-${ctx.callbackQuery.id}`,
-            });
+      } catch (err) {
+        this.rabbitMQService.tgServiceEmit({
+          payload: {
+            botToken: this.bot_token,
+            chatId: ctx.from.id.toString(),
+            type: TypeTelegramMessageE.SINGLE_CHAT,
+            contentType: ContentTypeE.TEXT,
+            text: String(err.message).length
+              ? err.message
+              : 'Invalid callback_query data',
           },
-        );
+          messageId: `${ctx.from.id}-${ctx.callbackQuery.id}`,
+        });
       }
       return await ctx.answerCallbackQuery();
     });
