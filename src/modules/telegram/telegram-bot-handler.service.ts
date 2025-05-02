@@ -257,7 +257,7 @@ export class TelegramBotHandlerService {
       },
     });
 
-    const isExistUsername = await this.participantService.findUnique({
+    const isExistUsername = await this.participantService.findOne({
       where: {
         username: args.payload.text,
         userId: { not: args.userId.toString() },

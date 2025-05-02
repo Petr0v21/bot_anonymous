@@ -6,6 +6,10 @@ import { PrismaService } from 'prisma/prisma.service';
 export class ParticipantService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  async findOne(args: Prisma.ParticipantFindFirstArgs) {
+    return this.prismaService.participant.findFirst(args);
+  }
+
   async findUnique(args: Prisma.ParticipantFindUniqueArgs) {
     return this.prismaService.participant.findUnique(args);
   }
