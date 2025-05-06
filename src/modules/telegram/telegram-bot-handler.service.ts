@@ -225,16 +225,20 @@ export class TelegramBotHandlerService {
       text: `Input username for room ${
         particapant.username ? `\nOr select your previous username` : ''
       }`,
-      replyMarkup: {
-        inline_keyboard: [
-          [
-            {
-              text: particapant.username,
-              callback_data: `participant:${particapant.roomId}:${particapant.username}`,
+      ...(particapant.username
+        ? {
+            replyMarkup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: particapant.username,
+                    callback_data: `participant:${particapant.roomId}:${particapant.username}`,
+                  },
+                ],
+              ],
             },
-          ],
-        ],
-      },
+          }
+        : {}),
     });
   }
 
@@ -254,18 +258,24 @@ export class TelegramBotHandlerService {
     const room = await this.roomService.findUnique({
       where: {
         id: roomId,
+        isActive: true,
       },
     });
 
-    const isExistUsername = await this.participantService.findOne({
+    if (!room) {
+      throw new Error('Invalid Provided RoomId!');
+    }
+
+    const isExistUsername = await this.participantService.findUnique({
       where: {
-        username: args.payload.text,
-        userId: { not: args.userId.toString() },
-        roomId: { not: roomId },
+        username_roomId: {
+          username: args.payload.text,
+          roomId,
+        },
       },
     });
 
-    if (isExistUsername) {
+    if (isExistUsername && args.userId.toString() !== isExistUsername.userId) {
       return args.sendMessage({
         text: `This username: ${args.payload.text} already exist! Try another name!`,
       });

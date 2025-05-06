@@ -48,7 +48,7 @@ export class TelegramBotRedisService {
     const client = this.redisService.getClient();
     await client.sadd(`${this.roomActiveUsersPrefix}${roomId}`, userId);
     await client.set(
-      `${this.participantPrefix}:${roomId}-${userId}`,
+      `${this.participantPrefix}${roomId}-${userId}`,
       this.redisService.serialize(participant),
     );
   }
@@ -64,7 +64,7 @@ export class TelegramBotRedisService {
       for (let i = 0; i < userIds.length; i += 100) {
         const keysToDelete = userIds
           .slice(i, i + 100)
-          .map((userId) => `${this.participantPrefix}:${roomId}-${userId}`);
+          .map((userId) => `${this.participantPrefix}${roomId}-${userId}`);
         await client.del(...keysToDelete);
       }
     }
@@ -74,13 +74,13 @@ export class TelegramBotRedisService {
   async removeUserFromRoom(userId: number | string, roomId: string) {
     const client = this.redisService.getClient();
     await client.srem(`${this.roomActiveUsersPrefix}${roomId}`, userId);
-    await client.del(`${this.participantPrefix}:${roomId}-${userId}`);
+    await client.del(`${this.participantPrefix}${roomId}-${userId}`);
   }
 
   async getParticipant(roomId: string, userId: string | number) {
     const client = this.redisService.getClient();
     const particapantString = await client.get(
-      `${this.participantPrefix}:${roomId}-${userId}`,
+      `${this.participantPrefix}${roomId}-${userId}`,
     );
 
     if (!particapantString) {
@@ -112,7 +112,7 @@ export class TelegramBotRedisService {
     const pipeline = client.multi();
 
     userIds.forEach((userId) => {
-      pipeline.get(`${this.participantPrefix}:${roomId}-${userId}`);
+      pipeline.get(`${this.participantPrefix}${roomId}-${userId}`);
     });
 
     const participants = await pipeline.exec();
@@ -132,7 +132,7 @@ export class TelegramBotRedisService {
   async getPartlyRoom(userId: string | number): Promise<PartlyRoom> {
     const stringObj = await this.redisService
       .getClient()
-      .get(`${this.partlyRoomPrefix}:${userId}`);
+      .get(`${this.partlyRoomPrefix}${userId}`);
     return this.redisService.deserialize(stringObj);
   }
 
@@ -140,7 +140,7 @@ export class TelegramBotRedisService {
     return this.redisService
       .getClient()
       .set(
-        `${this.partlyRoomPrefix}:${userId}`,
+        `${this.partlyRoomPrefix}${userId}`,
         this.redisService.serialize(data),
       );
   }
@@ -148,6 +148,6 @@ export class TelegramBotRedisService {
   async deletePartlyRoom(userId: string | number) {
     return this.redisService
       .getClient()
-      .del(`${this.partlyRoomPrefix}:${userId}`);
+      .del(`${this.partlyRoomPrefix}${userId}`);
   }
 }

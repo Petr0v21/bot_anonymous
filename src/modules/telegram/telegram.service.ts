@@ -603,7 +603,7 @@ export class TelegramService {
               });
             }
 
-            if (!roomId) {
+            if (!roomId || roomId === 'undefined') {
               throw new Error('RoomId doesn`t provided!');
             }
 
