@@ -199,17 +199,17 @@ export class TelegramBotHandlerService {
 
   private async handleFree(): Promise<void> {}
 
-  private async handleInputCode({
+  async handleInputCode({
     userId,
     payload: { text },
     sendMessage,
   }: BotHandlerArgsT): Promise<void> {
-    const particapant = await this.roomService.addParticipant(
+    const participant = await this.roomService.addParticipant(
       text,
       userId.toString(),
     );
 
-    if (!particapant) {
+    if (!participant) {
       return sendMessage({
         text: 'Invalid Code',
       });
@@ -218,21 +218,21 @@ export class TelegramBotHandlerService {
     await this.botRedisService.upsertUserStatus(
       userId,
       BotUserStatusE.INPUT_USERNAME,
-      particapant.roomId,
+      participant.roomId,
     );
 
     sendMessage({
       text: `Input username for room ${
-        particapant.username ? `\nOr select your previous username` : ''
+        participant.username ? `\nOr select your previous username` : ''
       }`,
-      ...(particapant.username
+      ...(participant.username
         ? {
             replyMarkup: {
               inline_keyboard: [
                 [
                   {
-                    text: particapant.username,
-                    callback_data: `participant:${particapant.roomId}:${particapant.username}`,
+                    text: participant.username,
+                    callback_data: `participant:${participant.roomId}:${participant.username}`,
                   },
                 ],
               ],
@@ -318,12 +318,12 @@ export class TelegramBotHandlerService {
       throw new Error('RoomId doesn`t provided!');
     }
 
-    const particapant = await this.botRedisService.getParticipant(
+    const participant = await this.botRedisService.getParticipant(
       roomId,
       args.userId,
     );
 
-    if (!particapant) {
+    if (!participant) {
       throw new Error('Empty participant at redis');
     }
 
@@ -339,7 +339,7 @@ export class TelegramBotHandlerService {
           botToken: this.configService.get('BOT_TOKEN'),
           chatId: userId,
           ...args.payload,
-          text: `👤 <b>${particapant.username}</b>\n${
+          text: `👤 <b>${participant.username}</b>\n${
             args.payload.replyText ? `↪️${args.payload.replyText}\n` : ''
           }${args.payload.text ? `📃 ${args.payload.text}` : ''}`,
           type: TypeTelegramMessageE.SINGLE_CHAT,

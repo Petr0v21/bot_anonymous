@@ -168,7 +168,25 @@ export class TelegramService {
                     chatId: chatId.toString(),
                     type: TypeTelegramMessageE.SINGLE_CHAT,
                     contentType: ContentTypeE.TEXT,
-                    text: 'Input username for room',
+                    text: `Input username for room ${
+                      participant.username
+                        ? `\nOr select your previous username`
+                        : ''
+                    }`,
+                    ...(participant.username
+                      ? {
+                          replyMarkup: {
+                            inline_keyboard: [
+                              [
+                                {
+                                  text: participant.username,
+                                  callback_data: `participant:${participant.roomId}:${participant.username}`,
+                                },
+                              ],
+                            ],
+                          },
+                        }
+                      : {}),
                   },
                   messageId: `${chatId}-${ctx.message.message_id}`,
                 });
