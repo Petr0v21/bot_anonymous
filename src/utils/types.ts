@@ -35,7 +35,8 @@ export type TgServiceEmitArgsT = {
 export type BotDefaultHandlerArgsT = {
   ctx: Context;
   chatId: number;
-  userId: number;
+  userId: string;
+  roomId: string;
 };
 
 export type BotHandlerWrapperT = {
@@ -47,19 +48,9 @@ export type BotHandlerWrapperT = {
 
 export enum BotUserStatusE {
   FREE = 'FREE',
-  INPUT_CODE = 'INPUT_CODE',
   INPUT_USERNAME = 'INPUT_USERNAME',
   PARTICIPANT = 'PARTICIPANT',
-  INPUT_NEW_ADMIN = 'INPUT_NEW_ADMIN',
-  INPUT_DEL_ADMIN = 'INPUT_DEL_ADMIN',
-  INPUT_NEW_ROOM = 'INPUT_NEW_ROOM',
-  DISACTIVATE_ROOM = 'DISACTIVATE_ROOM',
 }
-
-export type UserDataStatusT = {
-  status: BotUserStatusE | null;
-  roomId?: string;
-};
 
 export type MessagePayload = Omit<
   TgServiceMessageT,
@@ -67,10 +58,10 @@ export type MessagePayload = Omit<
 >;
 
 export type BotHandlerArgsT = {
-  userId: number;
-  status: UserDataStatusT;
+  roomId: string;
+  userId: string;
   payload: MessagePayload & { replyText?: string };
   sendMessage: (payload: MessagePayload) => void;
 };
 
-export type PartlyRoom = Pick<Partial<Room>, 'code' | 'title' | 'description'>;
+export type PartlyRoom = Pick<Partial<Room>, 'title' | 'description'>;

@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "user" (
+CREATE TABLE "users" (
     "id" TEXT NOT NULL,
     "username" TEXT,
     "first_name" TEXT,
@@ -8,42 +8,43 @@ CREATE TABLE "user" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "user_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "participant" (
-    "username" TEXT NOT NULL DEFAULT 'anonymous',
+CREATE TABLE "participants" (
+    "username" TEXT,
     "user_id" TEXT NOT NULL,
     "room_id" TEXT NOT NULL,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "is_active" BOOLEAN NOT NULL DEFAULT false,
     "connected_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "exited_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "participant_pkey" PRIMARY KEY ("room_id","user_id")
+    CONSTRAINT "participants_pkey" PRIMARY KEY ("room_id","user_id")
 );
 
 -- CreateTable
-CREATE TABLE "room" (
+CREATE TABLE "rooms" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT,
-    "code" TEXT NOT NULL,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "bot_token" TEXT NOT NULL,
+    "webhook" TEXT NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT false,
     "blocked_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "room_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "rooms_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "room_code_key" ON "room"("code");
+CREATE UNIQUE INDEX "participants_username_room_id_key" ON "participants"("username", "room_id");
 
 -- AddForeignKey
-ALTER TABLE "participant" ADD CONSTRAINT "participant_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "participants" ADD CONSTRAINT "participants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "participant" ADD CONSTRAINT "participant_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "room"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "participants" ADD CONSTRAINT "participants_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
