@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -20,7 +21,7 @@ model User {
   createdAt DateTime @default(now())  @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("user")
+  @@map("users")
 }
 
 model Participant {
@@ -32,7 +33,7 @@ model Participant {
   roomId String @map("room_id")
   room   Room   @relation(fields: [roomId], references: [id])
 
-  isActive Boolean @default(true) @map("is_active")
+  isActive Boolean @default(false) @map("is_active")
   connectedAt DateTime @default(now()) @map("connected_at")
   exitedAt DateTime? @map("exited_at")
 
@@ -43,16 +44,18 @@ model Participant {
 
   @@unique([username, roomId])
 
-  @@map("participant")
+  @@map("participants")
 }
 
 model Room {
-  id   String          @id @default(uuid())
+  id    String  @id
   title String
   description String?
-  code String @unique
 
-  isActive Boolean @default(true) @map("is_active")
+  botToken String @map("bot_token")
+  webhook String
+
+  isActive Boolean @default(false) @map("is_active")
   blockedAt DateTime?   @map("blocked_at")
 
   participants Participant[]
@@ -60,5 +63,5 @@ model Room {
   createdAt DateTime @default(now())  @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("room")
+  @@map("rooms")
 }

@@ -15,19 +15,6 @@ async function main() {
     },
   });
   console.log('Root user created!\n', root);
-
-  const room = await prisma.room.upsert({
-    where: {
-      id: '4af695fd-8771-4a1e-9341-ab5a0c835923',
-    },
-    update: {},
-    create: {
-      title: 'Test Room',
-      description: 'Test description about room!',
-      code: 'TEST_CODE_1',
-    },
-  });
-  console.log('Room created!\n', room);
 }
 main()
   .then(async () => {

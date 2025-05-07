@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
-import { BotUserStatusE, PartlyRoom, UserDataStatusT } from 'src/utils/types';
+import { BotUserStatusE } from 'src/utils/types';
 import { Participant, Room } from '@prisma/client';
+import { ParticipantService } from '../room/participant.service';
 
 @Injectable()
 export class TelegramBotRedisService {
@@ -9,82 +10,123 @@ export class TelegramBotRedisService {
   private readonly userStatusPrefix = 'user-status:';
   private readonly participantPrefix = 'participant-data:';
   private readonly roomActiveUsersPrefix = 'room-active-users:';
-  private readonly partlyRoomPrefix = 'pertly-room:';
 
-  constructor(private readonly redisService: RedisService) {}
+  constructor(
+    private readonly redisService: RedisService,
+    private readonly participantService: ParticipantService,
+  ) {}
 
-  async getUserStatus(userId: number | string): Promise<UserDataStatusT> {
+  async getUserStatus(
+    userId: string,
+    roomId: string,
+  ): Promise<BotUserStatusE | null> {
     const status = await this.redisService
       .getClient()
-      .get(`${this.userStatusPrefix}${userId}`);
+      .get(`${this.userStatusPrefix}${roomId}:${userId}`);
 
-    if (!status) {
-      return {
-        status: null,
-      };
+    if (status) {
+      return status as BotUserStatusE;
     }
-    const sepData = status.split(':');
-    return {
-      status: sepData[0] as BotUserStatusE,
-      roomId: sepData[1],
-    };
+
+    const participant = await this.participantService.findUnique({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId,
+        },
+      },
+    });
+
+    if (!participant) {
+      return null;
+    }
+
+    if (participant.isActive && participant.username) {
+      return await this.upsertUserStatus(
+        userId,
+        roomId,
+        BotUserStatusE.PARTICIPANT,
+      );
+    } else if (!participant.isActive && participant.username) {
+      return await this.upsertUserStatus(userId, roomId, BotUserStatusE.FREE);
+    } else {
+      return await this.upsertUserStatus(
+        userId,
+        roomId,
+        BotUserStatusE.INPUT_USERNAME,
+      );
+    }
   }
 
   async upsertUserStatus(
-    userId: number | string,
+    userId: string,
+    roomId: string,
     status: BotUserStatusE,
-    roomId?: string,
-  ): Promise<void> {
+  ): Promise<BotUserStatusE> {
     await this.redisService
       .getClient()
-      .set(`${this.userStatusPrefix}${userId}`, `${status}:${roomId}`);
+      .set(`${this.userStatusPrefix}${roomId}:${userId}`, `${status}`);
+    return status;
   }
 
   async addUserToRoom(
-    userId: number | string,
+    userId: string,
     roomId: string,
     participant: Participant,
   ) {
     const client = this.redisService.getClient();
     await client.sadd(`${this.roomActiveUsersPrefix}${roomId}`, userId);
     await client.set(
-      `${this.participantPrefix}${roomId}-${userId}`,
+      `${this.participantPrefix}${roomId}:${userId}`,
       this.redisService.serialize(participant),
     );
   }
 
-  async delRoomUsers(roomId: string) {
-    const client = this.redisService.getClient();
-
-    const userIds = await client.smembers(
-      `${this.roomActiveUsersPrefix}${roomId}`,
-    );
-
-    if (userIds.length > 0) {
-      for (let i = 0; i < userIds.length; i += 100) {
-        const keysToDelete = userIds
-          .slice(i, i + 100)
-          .map((userId) => `${this.participantPrefix}${roomId}-${userId}`);
-        await client.del(...keysToDelete);
-      }
-    }
-    await client.del(`${this.roomActiveUsersPrefix}${roomId}`);
-  }
-
-  async removeUserFromRoom(userId: number | string, roomId: string) {
+  async removeUserFromRoom(userId: string, roomId: string) {
     const client = this.redisService.getClient();
     await client.srem(`${this.roomActiveUsersPrefix}${roomId}`, userId);
-    await client.del(`${this.participantPrefix}${roomId}-${userId}`);
+    await client.del(`${this.participantPrefix}${roomId}:${userId}`);
   }
 
-  async getParticipant(roomId: string, userId: string | number) {
+  async isUserActiveInRoom(userId: string, roomId: string) {
+    const isMember = await this.redisService
+      .getClient()
+      .sismember(`${this.roomActiveUsersPrefix}${roomId}`, userId);
+    return isMember === 1;
+  }
+
+  async getParticipant(roomId: string, userId: string) {
     const client = this.redisService.getClient();
     const particapantString = await client.get(
       `${this.participantPrefix}${roomId}-${userId}`,
     );
 
     if (!particapantString) {
-      return null;
+      const participant = await this.participantService.findUnique({
+        where: {
+          roomId_userId: {
+            roomId,
+            userId,
+          },
+        },
+      });
+
+      if (!participant || !participant.isActive) {
+        return null;
+      }
+
+      const isActive = this.isUserActiveInRoom(userId, roomId);
+
+      if (!isActive) {
+        await this.addUserToRoom(userId, roomId, participant);
+      } else {
+        await client.set(
+          `${this.participantPrefix}${roomId}:${userId}`,
+          this.redisService.serialize(participant),
+        );
+      }
+
+      return participant;
     }
 
     return this.redisService.deserialize<Participant>(particapantString);
@@ -112,7 +154,7 @@ export class TelegramBotRedisService {
     const pipeline = client.multi();
 
     userIds.forEach((userId) => {
-      pipeline.get(`${this.participantPrefix}${roomId}-${userId}`);
+      pipeline.get(`${this.participantPrefix}${roomId}:${userId}`);
     });
 
     const participants = await pipeline.exec();
@@ -120,34 +162,5 @@ export class TelegramBotRedisService {
     return participants.map<Participant>((item) =>
       this.redisService.deserialize(item[1] as string),
     );
-  }
-
-  async isUserActiveInRoom(userId: number | string, roomId: string) {
-    const isMember = await this.redisService
-      .getClient()
-      .sismember(`${this.roomActiveUsersPrefix}${roomId}`, userId);
-    return isMember === 1;
-  }
-
-  async getPartlyRoom(userId: string | number): Promise<PartlyRoom> {
-    const stringObj = await this.redisService
-      .getClient()
-      .get(`${this.partlyRoomPrefix}${userId}`);
-    return this.redisService.deserialize(stringObj);
-  }
-
-  async upsertPartlyRoom(userId: string | number, data: PartlyRoom) {
-    return this.redisService
-      .getClient()
-      .set(
-        `${this.partlyRoomPrefix}${userId}`,
-        this.redisService.serialize(data),
-      );
-  }
-
-  async deletePartlyRoom(userId: string | number) {
-    return this.redisService
-      .getClient()
-      .del(`${this.partlyRoomPrefix}${userId}`);
   }
 }
