@@ -6,6 +6,10 @@ import { PrismaService } from 'prisma/prisma.service';
 export class ParticipantService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  async find(args: Prisma.ParticipantFindManyArgs) {
+    return this.prismaService.participant.findMany(args);
+  }
+
   async findOne(args: Prisma.ParticipantFindFirstArgs) {
     return this.prismaService.participant.findFirst(args);
   }

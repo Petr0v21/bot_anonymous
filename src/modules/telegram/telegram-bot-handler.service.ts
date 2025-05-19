@@ -177,25 +177,34 @@ export class TelegramBotHandlerService {
     if (!participant) {
       throw new Error('Not Active or Empty Participant');
     }
+    //TODO redis fix
+    // const users = await this.botRedisService.getActiveUserIdsInRoom(roomId);
+    const users = await this.participantService.find({
+      where: {
+        roomId,
+        isActive: true,
+      },
+      select: {
+        userId: true,
+      }
+    })
 
-    const users = await this.botRedisService.getActiveUserIdsInRoom(roomId);
-
-    users.forEach((listenerId) => {
-      if (listenerId === userId) {
+    users.forEach((user) => {
+      if (user.userId === userId) {
         return;
       }
 
       this.rabbitMQService.tgServiceEmit({
         payload: {
           botToken: this.configService.get('BOT_TOKEN'),
-          chatId: listenerId,
+          chatId: user.userId,
           ...payload,
           text: `👤 <b>${participant.username}</b>\n${
             payload.replyText ? `↪️${payload.replyText}\n` : ''
           }${payload.text ? `📃 ${payload.text}` : ''}`,
           type: TypeTelegramMessageE.SINGLE_CHAT,
         },
-        messageId: `${userId}-fanout-${listenerId}`,
+        messageId: `${userId}-fanout-${user.userId}`,
       });
     });
   }

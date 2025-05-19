@@ -12,7 +12,6 @@ export enum ContentTypeE {
 
 export enum TypeTelegramMessageE {
   SINGLE_CHAT = 'SINGLE_CHAT',
-  BROADCAST = 'BROADCAST',
   GROUP = 'GROUP',
 }
 
